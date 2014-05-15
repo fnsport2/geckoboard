@@ -1,0 +1,114 @@
+/*
+  Geckoboard Custom CSS
+  ---
+
+  This stylesheet allows you to quickly customise your awesome Geckoboards
+  using [SASS](http://sass-lang.com/) and [Compass](http://compass-style.org/)
+
+  You will need to have Ruby installed on your machine to run the build
+  process that compiles this file into a stylesheet ready to upload using
+  the custom CSS option when configuring your dashboard from within the
+  Geckoboard application. With Ruby installed you can run `gem install
+  compass` to install the compass gem then `compass compile` to build the
+  stylesheet which you can then find in the `css` directory.
+
+  To quickly configure your dashbaords look and feel you can adjust the
+  values of the variables at the top of each section.
+*/
+/*
+  ## Dashboard styles
+  There isn't much to the dashboard, it's just a place for widgets. You can
+  change the background color and add a background image here though
+*/
+/* line 31, ../sass/light-theme.scss */
+body {
+  background: #f0f0f0;
+}
+
+/*
+  ## Widget styles
+  The variables below dictate the colour of the widget elements
+*/
+/*
+  The anatomy of the widget in it's basic form is shown below, you can target
+  the individual widgets using the id which carries the unique id of each
+  widget shown here as `widget-{{id}}` where id is the numeric id of the widget
+  (`widget-12345` for example)
+
+      <article class="widget" id="widget-{{id}}">
+        <div class="widget-inner widget-size-1x1">
+          <section class="widget-body clock-widget no-title">
+            <div class="widget-canvas"></div>
+          </section>
+          <footer></footer>
+        </div>
+      </article>
+
+  You can set the widget colouring by altering the above variables, edit here
+  to adjust the widget structure
+*/
+/* line 86, ../sass/light-theme.scss */
+.widget {
+  -webkit-box-shadow: #f0f0f0 0 0 8px;
+  -moz-box-shadow: #f0f0f0 0 0 8px;
+  box-shadow: #f0f0f0 0 0 8px;
+}
+/* line 92, ../sass/light-theme.scss */
+.widget .widget-inner {
+  border: solid 1px #e5e5e5;
+  background-color: white;
+}
+/* line 97, ../sass/light-theme.scss */
+.widget .widget-inner > header {
+  background-color: whitesmoke;
+}
+/* line 100, ../sass/light-theme.scss */
+.widget .widget-inner > header h1 {
+  color: #8b8b8b;
+  text-shadow: 1px 1px white;
+}
+/* line 107, ../sass/light-theme.scss */
+.widget .widget-inner > footer {
+  color: #555555;
+  background-color: whitesmoke;
+  text-shadow: 1px 1px white;
+}
+/* line 115, ../sass/light-theme.scss */
+.widget .widget-body {
+  color: #666666;
+  text-shadow: 1px 1px white;
+}
+/* line 120, ../sass/light-theme.scss */
+.widget .widget-body .t-secondary {
+  color: #969696;
+}
+/* line 124, ../sass/light-theme.scss */
+.widget .widget-actions a:hover {
+  background-color: gainsboro;
+}
+
+/*
+  You can target widgets that belong to a paricular service using the service
+  HTML class that is assigned to each widget. The class names are the lower
+  case equivalent of the service title with all non alphanumeric characters,
+  including spaces, replaced with a hyphen. For example Google Analytics
+  widgets posess the `google-analytics` HTML class.
+
+  If you wish to alter the styling for a particluar template's visualisation
+  you may target the canvas area of that widget type using the template type
+  specific HTML class name. Selectors for each template type are stubbed out
+  below.
+*/
+/*
+  ## Map styles
+  Default styles for the map points and colouring of the countries
+*/
+/* line 173, ../sass/light-theme.scss */
+.map-widget path {
+  fill: #e0e0e0;
+  stroke: #d5d5d5;
+}
+/* line 178, ../sass/light-theme.scss */
+.map-widget circle {
+  fill: #b940ff;
+}

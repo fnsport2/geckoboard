@@ -1,0 +1,76 @@
+# yaml
+Debug: true
+
+Geckoboard Config:
+  push_api: https://push.geckoboard.com/v1/send/
+  api_key: 'dc0b92dac0ad30c46684c603c338f515'
+
+Data Config:
+# DB config 
+  DB:
+    database: 'geckoboard.db'
+# Goggle Analytics auth info
+  GA:
+    email: 'api@ck12.org'
+    token: 'Fila-668'
+    source_app_name: 'AIzaSyAYxvUgkjr60KwJBDZAuv9R3YaZhiOajFs'
+    service: 'analytics'
+
+
+
+Widgets Config:
+ -
+   name: New Users in USA
+   widgetkey: 14419-59c094bf5dab1c3cc09b8519935649a7 
+   predata:
+    ids: 'ga:22252794'
+    start-date: 'today'
+    end-date: 'today'
+    dimensions: 'ga:region'
+    metrics: 'ga:visitors'
+    sort: '-ga:visitors'
+    filters: 'ga:country==United States'
+    max-results: 5
+   data: ""
+   widgettype: 'Pie'
+   datatype: 'Google Analytics'
+   hexcolors: ["FFFF10","0F87FF","FF9900","0FFF0F","FF0F0F"]
+ -
+   name: New Visitor Locations
+   widgetkey: 14419-84414710-076e-0130-63e5-12313d040c0e
+   predata: 
+    ids: 'ga:22252794'
+    start-date: 'today'
+    end-date: 'today'
+    dimensions: 'ga:latitude,ga:longitude'
+    metrics: 'ga:newVisits'
+    filters: 'ga:country==United States'
+    max-results: 100
+    sort: '-ga:newVisits'
+   data: ""
+   widgettype: 'Map'
+   datatype: 'Google Analytics'
+ -
+   name: Facebook Talking About Count
+   widgetkey: 14419-f058a13efdaeb17ae15a33cbbdaa4b34 
+   predata: 
+    request: 'https://graph.facebook.com/CK12Foundation'
+    value: 'talking_about_count'
+    text: ' talking about'
+   data: ""
+   widgettype: 'Numbers'
+   datatype: 'API' 
+
+ -
+   name: Google Plus One Count
+   widgetkey: 14419-6a6653e5-7e9e-4f11-be2e-cb04765ae620
+   predata: 
+    request: 'https://www.googleapis.com/plus/v1/people/111140297209948672510?fields=circledByCount%2CplusOneCount&key=AIzaSyAYxvUgkjr60KwJBDZAuv9R3YaZhiOajFs'
+    value: 'plusOneCount'
+    text: ' Google +1 count'
+   data: ""
+   widgettype: 'Numbers'
+   datatype: 'API'
+
+
+

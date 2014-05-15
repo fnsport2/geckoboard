@@ -1,0 +1,413 @@
+#
+# Copyright 2007 - 2013 CK-12 Foundation
+#
+# All rights reserved
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under this License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+# implied.  See the License for the specific language governing
+# permissions and limitations.
+#
+# This file originally written by Felix Nance
+#
+
+import gdata.analytics.client
+import gdata.sample_util
+import urllib2
+import json
+import itertools 
+import datetime
+import yaml
+import logging
+#import sqlite3
+
+# Our configuration file important.
+geckoboard_configfile = 'dashboard.yaml'
+
+# Setting up our environment for some common needs, such as our config file.
+class Environment():
+    def __init__(self,
+            configfile=geckoboard_configfile):
+        tempyaml=''
+        with open(configfile,'r') as f:
+            tempyaml = yaml.load(f)
+
+        self.data_config = tempyaml['Data Config']
+        self.widget_config = tempyaml['Widgets Config']
+        self.geckoboard_config = tempyaml['Geckoboard Config']
+        self.debug = tempyaml['Debug']
+
+environment = Environment()
+
+# Configuring for logger done here
+def createLogger(name,filehandler=None):
+    """Create a logger to log activity."""
+
+    formatter = logging.Formatter('\n%(levelname)s: %(asctime)s - %(name)s -'+
+                                 '%(message)s')
+    logger = logging.getLogger(name)
+    if environment.debug:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+    console = logging.StreamHandler()
+    console.setLevel(logging.DEBUG)
+    console.setFormatter(formatter)
+    logger.addHandler(console)
+    if filehandler != None:
+        logger.addHandler(filehandler)
+    else:
+        fh = logging.FileHandler('defaultgeckoboard.log')
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+
+    return logger
+
+defaultLogger = createLogger("Widget")
+
+class Data():
+    """
+    Processes all data, and manages the database
+    """
+
+    def __init__(self,
+        config=environment.data_config,
+        database=None,
+        log=None
+        ):
+        self.config = config
+        self.db_name = database or config.get('DB')['database']
+        self.db_cursor = None
+        self.log = log or createLogger("Data",None)
+        self.log.info("Initializing")
+        self.currentdate = datetime.datetime.now()
+        self.my_client = None
+        self.authenticate()
+
+    # Authenticate to necessary thrid parties.
+    def authenticate(self):
+        self.log.info("Authenticating with 3rd party data clients")
+        #self._auth_database()
+        self._auth_google_analytics()
+
+    # Determine the type of data we need to handle.
+    def get_data(self,datatype,raw):
+        processed=None
+
+        if datatype:
+            if datatype.lower() == 'google analytics': processed = self._get_ga_data(raw)
+            elif datatype.lower() == 'api': processed = self._get_apiurl_data(raw)
+            else: self.log.error("Config Error: dataType ' %s' is unknown. Check config file."%datatype)
+        else:  
+            self.log.error("Config Error: dataType missing for widget. Check config file.") 
+
+        return processed   
+                         
+    # Handle GA queries, send and receive data.
+    # Return a dict {'lables':'', 'values':''}
+    def _get_ga_data(self,query):
+        " Make our GA query via the analytics api and return the data"
+    
+        feed = self._process_ga_query(query)
+        data = self._print_feed_table(feed)
+        return data
+
+    # Handle 3rd party api calls.
+    # Return a dict {'lables':'', 'values':''}
+    def _get_apiurl_data(self,api):
+    
+        self.log.info('making a request to this url %s'%api['request'])
+        url = urllib2.Request(url= api['request'])
+        f = urllib2.urlopen(url)
+        temp_data = json.loads(f.read())
+        data = {'labels': [api['text']], 'values': [temp_data[api['value']]]}
+        self.log.debug('data received for key [ %s ]  was %s'%(api['value'],temp_data[api['value']]))
+        return data
+
+    def _auth_database(self):
+        " Connect to the database"
+        self.log.info("Connecting with db: %s" %self.db_name)
+        tmp_conn = sqlite3.connect(self.db_name)
+        self.db_cursor = tmp_conn.cursor()
+
+    def _auth_google_analytics(self):
+        " Try to establish a client connection with Google Analytics"
+        self.log.info('Attempting to authenticate with Google Analytics')
+        self.my_client = gdata.analytics.client.AnalyticsClient()
+        try:
+            self.my_client.client_login(email=self.config.get('GA')['email'],
+                                        password=self.config.get('GA')['token'],
+                                        source=self.config.get('GA')['source_app_name'],
+                                        service=self.config.get('GA')['service'])
+            self.log.info('Google Analytics authentication successful')
+        except gdata.client.BadAuthentication:
+            self.log.error('Please check your credentials used for your GA account')
+            #exit('Invalid user credentials given.')
+        except gdata.client.ClientLoginFailed as e:
+            self.log.error('Login Error %s'%(e))
+        except gdata.client.Error as e:
+            exit('Login Error %s'%e)
+
+    # Execute a GA query and return data in feed object
+    def _process_ga_query(self,query):
+        " Execute our query with the api"
+        self.log.info('Attempting to make GA query')
+        # Set current date if requested
+        if query.has_key("start-date") and query["start-date"]=="today":
+            query["start-date"]='%s'% self.currentdate.strftime("%Y-%m-%d")
+
+        if query.has_key("end-date") and query["end-date"]=="today":
+            query["end-date"]='%s'% self.currentdate.strftime("%Y-%m-%d")
+        
+        #self.log.debug("GA query we will run: %s" %query)
+        data_query = gdata.analytics.client.DataFeedQuery(query)
+        self.log.debug("Api url we will send: %s" %data_query)
+        # Make the GA query and get the feed object
+        feed = self.my_client.GetDataFeed(data_query)
+        return feed  
+
+    # Iterate through the data and put it in key value pairs. 
+    def _print_feed_table(self,feed):
+        self.feed = feed
+        self.log.info('Formatting GA data into json')
+        dimension_value = []
+        metric_value = []
+        for index, entry in enumerate(self.feed.entry):
+            for dim in entry.dimension:
+                if dim.value:
+                    dimension_value.append(dim.value)
+                    # self.log.debug('Dimension Name = %s \t Dimension Value = %s'% (dim.name, dim.value))
+            for met in entry.metric:
+                metric_value.append(met.value); 
+                # self.log.debug('Metric Name =  %s \t Metric Value =  %s'% (met.name, met.value))
+
+        data = {'labels': dimension_value, 'values': metric_value}
+        self.log.debug("RAW GA data: %s"% data)
+        return data
+
+
+class Widget():
+    """ 
+    Manages the internals of the widget, data and state.
+    """
+    def __init__(self,
+        name=None,
+        datatype=None,
+        widgettype=None,
+        widgetkey=None,
+        hexcolors=None,
+        dashboard=None,
+        predata=None,
+        log=None
+        ):
+
+        self.name = name
+        self.type = widgettype
+        self.datatype = datatype
+        self.key = widgetkey
+        self.hexcolors = hexcolors
+        self.location = dashboard
+        # TODO: Need to change the structure of the config file 
+        # and not make assuptions on the datahandler needed.
+        self.pre_data = predata
+        self.post_data = {}
+        self.error = {'Error': False, 'Msg': None}
+        self.log = log or defaultLogger
+        self.log.debug("SURELY I ONLY GET CALLED ONCE %s " % self)
+        self.data2send = {
+            'default': {"item":[]},
+            'funnel' : {"percentage":"hide","item":[]},
+            'map' : {"points":{"point":[]}},
+            'meter' : {"item":""},
+            'pie' : {"item":[]}
+        }
+        self.typehandler = {
+            'Map' : self._set_map,
+            'Pie' : self._set_pie,
+            'Funnel' : self._set_funnel,
+            'Numbers' : self._set_numbers,
+            'Meter' : self._set_meter
+        }
+
+    def get_my_name(self):
+        return{'name':self.name}
+    def get_my_key(self):
+        return{'key':self.key}
+    def get_my_location(self):
+        return{'location':self.location}
+    def get_my_type(self):
+        return{'name':self.type}
+
+    # Look to see which widget type to update, and then call appropriate
+    # method or error
+    def update(self):
+        self.log.debug("Update looking for widget type: %s" %self.type)
+        self.log.debug("Update called for %s" % self)
+        update_error = lambda e: self._throwerror("Widget type not found: %s" %self.type)
+        if self.post_data:
+            self.log.debug("POSTDATA FOUND")
+            self.typehandler.get(self.type, update_error)()
+        else:
+            self.log.debug("POSTDATA NOT FOUND")
+            self._throwerror("Post data does not exist, no data to update.")
+        return None
+    
+    # Lat and Long points for the lat,long are stored in a single array 'labels'.
+    # Use xrange to parse the list two at a time. 
+    def _set_map(self):
+        self.log.info('Doing some work on a map widget')
+        tempList = self.post_data.get('labels')
+        for i in xrange(0,len(self.post_data.get('labels')),2): 
+            #for item in self.post_data.get('labels'):
+            self.data2send.get('map')['points']['point'].append({"latitude":tempList[i],
+                                                    "longitude":tempList[i+1]})
+            self.post_data.update({'data': self.data2send['map']})
+            self._clean_widget_data()         
+        
+    def _set_pie(self):
+        # Pie widget 
+        self.log.info('Doing some work on a pie widget')
+
+        for i, (value,label) in enumerate(zip(self.post_data["values"], self.post_data["labels"])):
+
+            self.data2send.get('pie')['item'].append({"value":value,"label":label,
+                                            "colour":"%s"%self.hexcolors[i]})
+        #widget.update({"data":default_data2send})
+        self.post_data.update({'data': self.data2send['pie']})
+        self._clean_widget_data()
+
+    def _set_funnel(self):
+        # Funnel widget 
+        self.log.info('Doing some work on a funnel widget')
+        funnel_data2send["item"].append({"value":value,"label":label})
+        self.post_data.update({'data': self.data2send['funnel']})
+        self._clean_widget_data()
+
+    def _set_numbers(self):
+        # Numbers widget
+        self.log.info('Doing some work on a numbers widget')
+        for (value,label) in zip(self.post_data["values"], self.post_data["labels"]):
+            self.data2send.get('default')['item'].append({"text":label,"value":value})
+
+        self.post_data.update({'data': self.data2send['default']})
+        self._clean_widget_data()
+
+    def _set_meter(self):
+        # Meter widget
+        self.log.info('Doing some work on a meter widget')
+        meter_data2send.update({"item":value,
+                                "max":{"text":widget["max_text"],"value":widget["max_number"]}, 
+                                "min":{"text":widget["min_text"],"value":widget["min_number"]}})
+        self.post_data.update({'data': self.data2send['meter']})
+        self._clean_widget_data()
+
+    
+    # Now we can remove the value and lebel keys.
+    # Only to be called at the end of a widget function.
+    def _clean_widget_data(self):
+        self.log.info('Removing unwanted key value pairs.')
+        try:
+            del(self.post_data['values'])
+        except KeyError:
+            self._throwerror("Key [values] was not found.")
+        try:
+            del(self.post_data['labels'])
+        except KeyError:
+            self._throwerror("Key [labels] was not found.")
+
+        self.log.debug("%s post data: %s"%(self.type,self.post_data))
+
+    def _throwerror(self,msg):
+        self.error['Error'] = True
+        self.error['Msg'] = msg or 'No reason specified, please enable debug.'
+        self.log.error("%s"%msg)
+
+class Geckoboard():
+    """
+    Manages our geckoboard app. It knows about it's widgets and dashboards.
+    """
+    def __init__(self,
+        push_api = environment.geckoboard_config.get('push_api'),
+        api_key = environment.geckoboard_config.get('api_key'),
+        log = None
+        ):
+        self.push_api = push_api
+        self.api_key = api_key
+        self.num_widgets = 0
+        self.widgets = []
+        self.log = log or createLogger("Geckoboard",None)
+        self.log.info("Initializing")
+        
+    # TODO: Add functionality to initialize widgets.
+    def load_widgets(self):
+        #for widget in widgets:
+        pass
+
+    # Update Geckoboard with the widget data using push api.
+    def update_dashboard(self,widget,data):
+        self.log.info('updating dashboard')
+        # Use the widgetkey to update the geckoboard using the push api.
+        self.log.info(self.push_api+str(widget.key))
+        request = urllib2.Request(self.push_api+str(widget.key))
+        request.add_header("Content-Type", "application/json")
+        try:
+            finalpackage = '{"api_key":"%s","data":%s}'%(self.api_key,
+                                                         json.dumps(data['data']))
+            self.log.debug('pushing this dump to geckoboard: %s'%finalpackage)
+            urllib2.urlopen(request,finalpackage)
+
+        except Exception as e:
+            self.log.error('oops: %s'%e)
+     
+            
+    # Forgot what this was for but currently not using this.
+    def _PreserveDictionaryOrder(self,widget):
+        pass
+        #for key, value in sorted(widget["data"]["item"]["range"].iteritems(), key=lambda (k,v): (v,k)):
+        #    self.log.debug('%s: %s' %(key, value))
+
+
+def main():
+  
+    # Make our data object
+    datahandler = Data()
+
+    # Make our geckoboard object
+    ck12geckoboard = Geckoboard(
+        push_api=environment.geckoboard_config.get('push_api'),
+        api_key=environment.geckoboard_config.get('api_key')
+    )
+    
+    # List to hold our widgets.
+    widgetlist =[]
+    
+    # Create our widgets from our config file.
+    for item in environment.widget_config:
+        #print item['name']
+        widgetlist.append(
+            Widget( 
+                    name = item['name'],
+                    datatype = item['datatype'],
+                    widgettype = item['widgettype'],
+                    widgetkey = item['widgetkey'],
+                    predata = item['predata'],
+                    hexcolors = item['hexcolors'] if item.has_key('hexcolors') else None,
+                    dashboard = item['dashboard'] if item.has_key('dashboard') else None
+            )             
+        )
+    # Process the data using the datahandler, and store that data.
+    widgetlist[1].post_data = datahandler.get_data(widgetlist[1].datatype,widgetlist[1].pre_data)
+
+    
+    # "CALLING UPDATE"
+    widgetlist[1].update() 
+    
+    #print widgetlist[3]
+    ck12geckoboard.update_dashboard(widgetlist[1],widgetlist[1].post_data)
+       
+
+if __name__ == '__main__':
+
+    main()

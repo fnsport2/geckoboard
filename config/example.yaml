@@ -1,0 +1,150 @@
+# Debug logging. Default is false.
+Debug: false
+
+# Geckoboard configuration, 
+# push api: http://www.geckoboard.com/developers/custom-widgets/push
+# Api key: Your API key is available in your account page.
+Geckoboard Config:
+  push_api: 
+  api_key: 
+
+# DB config 
+Data Config:
+  DB:
+    database: 'geckoboard.db'
+
+# Goggle Analytics auth info
+# email, token, app name, service
+  GA:
+    email: 'user@foo.com'
+    token: 'token'
+    source_app_name: 'Google_app_name_key'
+    service: 'analytics'
+
+
+
+Widgets Config:
+
+ -
+   enabled: false
+   name: New Visitors Today
+   widgetkey: 
+   - widget-key
+   predata:
+    ids: 'ga:your-id'
+    start-date: 'today'
+    end-date: 'today'
+    metrics: 'ga:newVisits'
+   data: ""
+   widgettype: 'Meter'
+   min_number: 0
+   min_text: LOW
+   max_number: 22788
+   max_text: HIGH
+   datatype: 'Google Analytics'
+
+ -
+   enabled: false
+   name: New Users in USA
+   widgetkey:  
+   predata:
+    ids: 
+    start-date: 'today'
+    end-date: 'today'
+    dimensions: 'ga:region'
+    metrics: 'ga:visitors'
+    sort: '-ga:visitors'
+    filters: 'ga:country==United States'
+    max-results: 5
+   data: ""
+   widgettype: 'Pie'
+   datatype: 'Google Analytics'
+   hexcolors: ["FFFF10","0F87FF","FF9900","0FFF0F","FF0F0F"]
+
+ -
+   enabled: false
+   name: New Visitor US Locations
+   widgetkey: 
+   predata: 
+    ids: 
+    start-date: 'today'
+    end-date: 'today'
+    dimensions: 'ga:latitude,ga:longitude'
+    metrics: 'ga:newVisits'
+    sort: '-ga:newVisits'
+   data: ""
+   widgettype: 'Map'
+   datatype: 'Google Analytics'
+
+ -
+   enabled: false
+   name: New Visitor Europe Locations
+   widgetkey: 
+   predata: 
+    ids: 
+    start-date: 'today'
+    end-date: 'today'
+    dimensions: 'ga:latitude,ga:longitude'
+    metrics: 'ga:newVisits'
+    sort: '-ga:newVisits'
+   data: ""
+   widgettype: 'Map'
+   datatype: 'Google Analytics'
+
+ -
+   enabled: false
+   name: New Visitor World Locations
+   widgetkey:
+   - 1d 
+   predata: 
+    ids: 
+    start-date: 'today'
+    end-date: 'today'
+    dimensions: 'ga:latitude,ga:longitude'
+    metrics: 'ga:newVisits'
+    sort: '-ga:newVisits'
+   data: ""
+   widgettype: 'Map'
+   datatype: 'Google Analytics'
+
+ -
+   enabled: true
+   name: Facebook Talking About Count
+   widgetkey: 
+   - 94 
+   predata: 
+    request: 'https://graph.facebook.com/CK12Foundation'
+    value: 'talking_about_count'
+    text: ' talking about'
+   data: ""
+   widgettype: 'Numbers'
+   datatype: 'API'
+
+ -
+   enabled: true
+   name: Google Plus One Count
+   widgetkey: 
+   - 10
+   - 1f
+   predata: 
+    request: 'https://www.googleapis.com/plus/v1/people/111140297209948672510?fields=circledByCount%2CplusOneCount&key=AIzaSyAYxvUgkjr60KwJBDZAuv9R3YaZhiOajFs'
+    value: 'plusOneCount'
+    text: ' Google +1 count'
+   data: ""
+   widgettype: 'Numbers'
+   datatype: 'API'
+
+ -
+   enabled: true
+   name: Test
+   widgetkey: 
+   - 19
+   predata: 
+    ids: 
+    start-date: 'today-year'
+    end-date: 'today-year'
+    metrics: 'ga:newVisits'
+    text: 'test'
+   data: ""
+   widgettype: 'Numbers'
+   datatype: 'Google Analytics'
