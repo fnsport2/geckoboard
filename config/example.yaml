@@ -127,7 +127,7 @@ Widgets Config:
    - 10
    - 1f
    predata: 
-    request: 'https://www.googleapis.com/plus/v1/people/111140297209948672510?fields=circledByCount%2CplusOneCount&key=AIzaSyAYxvUgkjr60KwJBDZAuv9R3YaZhiOajFs'
+    request: 'https://www.googleapis.com/plus/v1/people/111140297209948672510?fields=circledByCount%2CplusOneCount&key=yourkey'
     value: 'plusOneCount'
     text: ' Google +1 count'
    data: ""
